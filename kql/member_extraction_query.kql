@@ -1,0 +1,58 @@
+// Entra ID group membership/ownership changes (reference template)
+// Purpose: Identify actor + group + affected principals by correlating TargetResources.
+// Why: For membership changes, affected principals are often separate TargetResources entries,
+// not deltas embedded in modifiedProperties.
+// All identifiers are placeholders.
+
+let StartTime = ago(365d);
+
+let GroupIds = dynamic([
+    "00000000-0000-0000-0000-000000000001",  // Example-Usage-admin
+    "00000000-0000-0000-0000-000000000002"   // Example-Salesforce-users
+]);
+
+let AccessActivities = dynamic([
+    "Add member to group",
+    "Remove member from group",
+    "Add owner to group",
+    "Remove owner from group"
+]);
+
+AuditLogs
+| where TimeGenerated >= StartTime
+| where Category == "GroupManagement"
+| where ActivityDisplayName in (AccessActivities)
+| extend
+    ActorUPN      = tostring(InitiatedBy.user.userPrincipalName),
+    ActorName     = tostring(InitiatedBy.user.displayName),
+    ActorApp      = tostring(InitiatedBy.app.displayName),
+    ResultStatus  = tostring(Result),
+    CorrelationId = tostring(CorrelationId)
+| mv-expand TR = TargetResources
+| extend
+    TargetType = tostring(TR.type),
+    TargetId   = tostring(TR.id),
+    TargetName = tostring(TR.displayName),
+    TargetUPN  = tostring(TR.userPrincipalName)
+| summarize
+    GroupId   = anyif(TargetId,   TargetType =~ "Group"),
+    GroupName = anyif(TargetName, TargetType =~ "Group"),
+    AffectedObjectIds    = make_set_if(TargetId,   TargetType in~ ("User","ServicePrincipal")),
+    AffectedDisplayNames = make_set_if(TargetName, TargetType in~ ("User","ServicePrincipal")),
+    AffectedUPNs         = make_set_if(TargetUPN,  TargetType in~ ("User","ServicePrincipal"))
+  by TimeGenerated, ActivityDisplayName, ActorUPN, ActorName, ActorApp, ResultStatus, CorrelationId
+| where GroupId in (GroupIds)
+| project
+    TimeGenerated,
+    ActivityDisplayName,
+    GroupId,
+    GroupName,
+    ActorUPN,
+    ActorName,
+    ActorApp,
+    AffectedDisplayNames,
+    AffectedUPNs,
+    AffectedObjectIds,
+    ResultStatus,
+    CorrelationId
+| order by TimeGenerated desc
