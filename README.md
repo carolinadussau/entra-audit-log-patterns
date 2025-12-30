@@ -40,6 +40,7 @@ produces consistent results when the data is available.
 - Not all audit events populate userPrincipalName; objectId may be the only identifier
 - Microsoft Graph directory audit endpoints may expose a shorter retention window
   than logs streamed to Log Analytics
+- This repository intentionally focuses on reasoning patterns and failure modes rather than exhaustive automation.
 
 These constraints are documented intentionally rather than abstracted away.
 
