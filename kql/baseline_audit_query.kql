@@ -1,0 +1,44 @@
+// Baseline Entra ID group access change query (reference template)
+// Purpose: Identify access-change events + actor for specific groups.
+// Note: This baseline does NOT reliably include which principals were added/removed.
+// All identifiers are placeholders.
+
+let StartTime = ago(365d);
+
+let GroupIds = dynamic([
+    "00000000-0000-0000-0000-000000000001",  // Example-Usage-admin
+    "00000000-0000-0000-0000-000000000002"   // Example-Salesforce-users
+]);
+
+let AccessActivities = dynamic([
+    "Add member to group",
+    "Remove member from group",
+    "Add owner to group",
+    "Remove owner from group"
+]);
+
+AuditLogs
+| where TimeGenerated >= StartTime
+| where Category == "GroupManagement"
+| where ActivityDisplayName in (AccessActivities)
+| mv-expand TargetResources
+| extend
+    GroupId       = tostring(TargetResources.id),
+    GroupName     = tostring(TargetResources.displayName),
+    ActorUPN      = tostring(InitiatedBy.user.userPrincipalName),
+    ActorName     = tostring(InitiatedBy.user.displayName),
+    ActorApp      = tostring(InitiatedBy.app.displayName),
+    ResultStatus  = tostring(Result),
+    CorrelationId = tostring(CorrelationId)
+| where GroupId in (GroupIds)
+| project
+    TimeGenerated,
+    ActivityDisplayName,
+    GroupId,
+    GroupName,
+    ActorUPN,
+    ActorName,
+    ActorApp,
+    ResultStatus,
+    CorrelationId
+| order by TimeGenerated desc
